@@ -11,7 +11,7 @@ from langchain_classic.memory import ConversationBufferMemory
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 
 # --- Configuration ---
-PDF_FILE_PATH = "D:/B.tech{CS-DS}/Semister 7/DE-IV(Speech and NLP)/project/Hindustan Foods Limited faqs.pdf"
+PDF_FILE_PATH = "https://github.com/Maddi-vaishnavi/Hindustan-Foods-Limited-Analysis-NLP/blob/main/Hindustan%20Foods%20Limited%20faqs.pdf"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 LLM_MODEL = "openai/gpt-3.5-turbo"
 CACHE_DIR = "./chroma_db_cache"
@@ -278,4 +278,5 @@ try:
 
 except Exception as e:
     st.error(f"An unexpected error occurred during setup: {e}")
+
     st.info("Please ensure your OpenRouter API key is correct and the PDF file is accessible.")
