@@ -1,275 +1,220 @@
-import os
-import json
-import numpy as np
-import requests
-import streamlit as st
+# 📊 Hindustan Foods Limited – Report Analyzer
 
-# Import sklearn with error handling
+An interactive NLP dashboard for analyzing annual reports using sentiment analysis, word clouds, TF-IDF, and topic modeling (LDA).
 
-try:
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.preprocessing import normalize
-from sklearn.metrics.pairwise import cosine_similarity
-except ImportError as e:
-st.error(f"Missing required package: {e}")
-st.error("Please ensure scikit-learn is installed. Check your requirements.txt file.")
-st.stop()
+---
 
-# --- Configuration ---
+## 🎯 Project Overview
 
-OPENROUTER_API_KEY = "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" # hardcoded per user request
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_NAME = "openai/gpt-3.5-turbo"
+This Streamlit web application performs comprehensive Natural Language Processing on PDF annual reports, providing:
 
-# Use relative paths for deployment compatibility
+- ✅ **PDF Text Extraction** - Extract text from all pages
+- ✅ **Sentiment Analysis** - Analyze sentiment for each sentence using TextBlob
+- ✅ **Word Cloud Generation** - Visual representation of frequent words
+- ✅ **TF-IDF Matrix** - Term Frequency-Inverse Document Frequency analysis
+- ✅ **Topic Modeling** - Discover 10 latent topics using LDA (Latent Dirichlet Allocation)
 
-DATA_PATH = "chatbot_data.json"
-FAQ_PDF_PATH = "Heritage_Foods_2024_25_FAQ.pdf"
-MAX_SNIPPETS = 5
-MAX_SNIPPET_CHARS = 1000
+---
 
-# --- Utilities ---
+## 🚀 Quick Start
 
-def get_api_key() -> str: # Priority: hardcoded variable, Streamlit secrets, environment
-key = OPENROUTER_API_KEY
-if key and key != "sk-or-v1-REPLACE_ME":
-return key
-key = st.secrets.get("OPENROUTER_API_KEY", "") or os.environ.get("OPENROUTER_API_KEY", "")
-return key
+### Prerequisites
+- Python 3.12+ installed
+- pip package manager
 
-@st.cache_resource
-def load_artifacts(path: str = DATA_PATH):
-try:
-with open(path, 'r', encoding='utf-8') as f:
-data = json.load(f)
-pages = data['pages']
-vocab = data['vocabulary']
-matrix = np.array(data['tfidf_matrix'], dtype=float)
-return pages, vocab, matrix
-except FileNotFoundError:
-st.error(f"Required file not found: {path}")
-st.error("Please ensure chatbot_data.json is uploaded to your Streamlit app.")
-st.stop()
-except Exception as e:
-st.error(f"Error loading data: {e}")
-st.stop()
+### Installation
 
-@st.cache_resource
-def build_vectorizer(vocabulary: dict): # CountVectorizer with fixed vocab for query encoding; no fitting needed
-return CountVectorizer(vocabulary=vocabulary)
+1. **Clone or download this project**
 
-def \_safe_read_faq_pdf(pdf_path: str) -> list:
-"""Return a list of dicts [{'page_number': int, 'text': str, 'source': 'faq_pdf'}]."""
-pages = []
-try: # Prefer modern 'pypdf' if available; otherwise fall back to 'PyPDF2'
-try:
-import pypdf as pdf_backend # type: ignore
-except Exception:
-import PyPDF2 as pdf_backend # type: ignore
-with open(pdf_path, 'rb') as f:
-reader = pdf_backend.PdfReader(f)
-for idx, page in enumerate(reader.pages, start=1): # Both backends support extract_text(); handle None safely
-text = (page.extract_text() or '').strip()
-pages.append({'page_number': idx, 'text': text, 'source': 'faq_pdf'})
-except Exception as e:
-st.warning(f"FAQ PDF couldn't be processed ({e}). The bot will use only the JSON corpus.")
-return pages
+2. **Install dependencies:**
+```powershell
+pip install streamlit PyPDF2==3.0.1 nltk textblob wordcloud matplotlib scikit-learn pandas
+```
 
-@st.cache_resource
-def load_faq_artifacts(pdf_path: str, \_vectorizer: CountVectorizer):
-"""Load FAQ PDF pages and build a TF-IDF matrix aligned to existing vocabulary."""
-faq_pages = \_safe_read_faq_pdf(pdf_path)
-if not faq_pages:
-return [], None
-texts = [(p.get('text') or '') for p in faq_pages]
-counts = \_vectorizer.transform(texts) # Fit TF-IDF on FAQ pages only; this is separate from the annual report matrix
-tfidf = TfidfTransformer(norm='l2', use_idf=True)
-faq_matrix = tfidf.fit_transform(counts)
-return faq_pages, faq_matrix
+3. **Download NLTK data** (one-time setup):
+```python
+python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+```
 
-def retrieve_context(query: str, vectorizer: CountVectorizer, tfidf_matrix: np.ndarray, pages: list, k: int = MAX_SNIPPETS) -> list:
-query_counts = vectorizer.transform([query])
-query_vec = normalize(query_counts, norm='l2')
-scores = cosine_similarity(query_vec, tfidf_matrix)[0]
-idx_sorted = np.argsort(scores)[::-1][:k]
-selected = []
-for i in idx_sorted:
-selected.append({
-'page_number': pages[i].get('page_number'),
-'text': (pages[i].get('text') or '')[:MAX_SNIPPET_CHARS],
-'score': float(scores[i]),
-'source': pages[i].get('source', 'annual_report')
-})
-return selected
+### Running the Application
 
-def call_openrouter(api_key: str, model: str, system_prompt: str, user_prompt: str) -> str:
-headers = {
-"Authorization": f"Bearer {api_key}",
-"Content-Type": "application/json", # Optional but recommended headers
-"HTTP-Referer": "https://localhost", # replace with your deployed URL if any
-"X-Title": "Heritage FAQ Chatbot",
-}
-payload = {
-"model": model,
-"messages": [
-{"role": "system", "content": system_prompt},
-{"role": "user", "content": user_prompt},
-],
-"temperature": 0.2,
-"max_tokens": 500,
-}
-resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
-resp.raise_for_status()
-data = resp.json()
-return data["choices"][0]["message"]["content"].strip()
+```powershell
+# Navigate to project directory
+cd "d:\B.tech{CS-DS}\Semister 7\DE-IV(Speech and NLP)\project"
 
-def build*prompt(question: str, snippets: list) -> tuple[str, str]:
-snippet_text = "\n\n".join([f"[{s.get('source','annual_report').replace('*',' ')} | Page {s['page_number']} | score {s['score']:.3f}]\n{s['text']}" for s in snippets])
-system_prompt = (
-"You are a helpful assistant answering questions using ONLY the provided context from the Heritage "
-"Annual Report (FY 2024–25) and the Heritage Foods FAQ document. Quote figures cautiously and avoid fabricating details."
-)
-user_prompt = (
-f"Context:\n{snippet_text}\n\n"
-f"Question: {question}\n\n"
-"If the answer is not present in the context, say you couldn't find it explicitly and suggest the most relevant sections."
-)
-return system_prompt, user_prompt
+# Run Streamlit app
+streamlit run assignment.py
+```
 
-# --- UI ---
+The app will open in your browser at `http://localhost:8501`
 
-st.set_page_config(page_title='Heritage FAQ Chatbot', page_icon='🧠', layout='wide')
+---
 
-# Add custom CSS for full width text
+## 📋 How to Use
 
-st.markdown("""
+1. **Upload PDF**: Click "Upload PDF file" in the left sidebar
+2. **View Analysis**: Navigate through the 4 tabs:
+   - **Tab 1**: Sentiment Analysis with charts
+   - **Tab 2**: Frequent Words & Word Cloud
+   - **Tab 3**: TF-IDF Matrix Preview
+   - **Tab 4**: Topic Modeling (10 Topics)
+3. **Download Results**: Click download buttons to export CSV files
 
-<style>
-    .main .block-container {
-        padding-left: 1rem;
-        padding-right: 1rem;
-        max-width: 100%;
-    }
-    .stText {
-        width: 100%;
-    }
-    .stMarkdown {
-        width: 100%;
-    }
-    .element-container {
-        width: 100%;
-    }
-</style>
+---
 
-""", unsafe_allow_html=True)
+## 🛠️ Technical Stack
 
-st.title('🧠 Heritage Annual Report FAQ Chatbot')
-st.caption('Lightweight RAG: TF‑IDF retrieval + OpenRouter GPT for answers.')
+| Component | Technology |
+|-----------|-----------|
+| **Framework** | Streamlit |
+| **PDF Processing** | PyPDF2 |
+| **NLP** | NLTK, TextBlob |
+| **Machine Learning** | Scikit-learn (TF-IDF, LDA) |
+| **Visualization** | Matplotlib, WordCloud |
+| **Data Manipulation** | Pandas |
 
-TOP_FAQ_QUESTIONS = [
-"Summarize FY 2024–25 performance highlights.",
-"Who should I contact for investor relations?",
-"What is the shareholding pattern?",
-"What are Heritage Foods' key business segments?",
-"What is Heritage Foods' vision for 2030?",
-"How does Heritage Foods ensure corporate governance?",
-]
+---
 
-with st.sidebar:
-st.subheader('Settings')
-st.text_input('Override API key (optional)', type='password', key='override_key')
-st.number_input('Snippets (k)', min_value=1, max_value=10, value=MAX_SNIPPETS, key='k')
-st.number_input('Max snippet chars', min_value=200, max_value=2000, value=MAX_SNIPPET_CHARS, step=100, key='max_chars') # Add some spacing
-st.markdown("---")
-st.markdown("**Note:** Text content now uses full width for better readability.")
+## 📊 Features
 
-if st.session_state.get('override_key'):
-OPENROUTER_API_KEY = st.session_state['override_key']
-if st.session_state.get('k'):
-MAX_SNIPPETS = int(st.session_state['k'])
-if st.session_state.get('max_chars'):
-MAX_SNIPPET_CHARS = int(st.session_state['max_chars'])
+### 1. Sentiment Analysis
+- Sentence-level sentiment classification (Positive/Negative/Neutral)
+- Polarity scores (-1 to +1)
+- Visual distribution charts (bar & pie)
+- Downloadable CSV results
 
-pages, vocab, matrix = load_artifacts(DATA_PATH)
+### 2. Word Analysis
+- Top 20 most frequent words
+- Frequency bar charts
+- Beautiful word clouds with color schemes
 
-# Mark source on annual report pages for clarity in UI/prompts
+### 3. TF-IDF Analysis
+- Document-term matrix creation
+- Unigrams and bigrams support
+- Feature importance visualization
 
-for p in pages:
-p['source'] = 'annual_report'
-vectorizer = build_vectorizer(vocab)
-faq_pages, faq_matrix = load_faq_artifacts(FAQ_PDF_PATH, vectorizer)
+### 4. Topic Modeling (LDA)
+- 10 topics with top 10 words each
+- Topic weight distribution
+- Gibbs sampling-based (online learning)
+- Visual topic importance chart
 
-# Initialize selected question from session state
+---
 
-selected_q = st.session_state.get('selected_question', '')
-query = st.text_input('Your question', value=selected_q, placeholder="e.g., Summarize FY 2024–25 performance highlights", key='question')
+## 📁 Project Structure
 
-# Track if a question has been answered
+```
+project/
+├── assignment.py          # Main Streamlit application
+├── PROJECT_REPORT.md      # Detailed project report
+├── README.md              # This file
+└── requirements.txt       # Python dependencies (optional)
+```
 
-question_answered = st.session_state.get('question_answered', False)
+---
 
-col1, col2 = st.columns([4, 1])
-with col1:
-if st.button('Ask') or query:
-if not query:
-st.info('Type a question above.')
-else:
-key = get_api_key()
-if not key:
-st.error('OpenRouter API key missing. Add it in the sidebar or set it in code.')
-st.stop()
-context_main = retrieve_context(query, vectorizer, matrix, pages, k=MAX_SNIPPETS)
-context_faq = []
-if faq_matrix is not None and faq_pages:
-context_faq = retrieve_context(query, vectorizer, faq_matrix, faq_pages, k=MAX_SNIPPETS) # Merge and keep top K overall
-context = sorted(context_main + context_faq, key=lambda s: s['score'], reverse=True)[:MAX_SNIPPETS]
-sys_p, user_p = build_prompt(query, context)
-try:
-answer = call_openrouter(key, MODEL_NAME, sys_p, user_p)
-st.subheader('Answer')
-st.write(answer)
-st.subheader('Context used')
-for s in context:
-label = 'Annual Report' if s.get('source') == 'annual_report' else 'FAQ PDF'
-st.markdown(f"**{label} · Page {s['page_number']}** · score {s['score']:.3f}")
-st.write(s['text'])
-st.divider() # Mark that a question has been answered
-st.session_state['question_answered'] = True
-except requests.HTTPError as e:
-st.error(f"OpenRouter API error: {e}\n{e.response.text if e.response is not None else ''}")
-except Exception as e:
-st.error(f"Unexpected error: {e}")
+## 🎓 Project Requirements (Completed)
 
-with col2:
-st.empty()
+- [x] **Task 1**: Import PDF and read all pages
+- [x] **Task 2**: Save into DataFrame
+- [x] **Task 3**: Preprocess (lowercase, remove punctuation, digits, special chars, stopwords)
+- [x] **Task 4**: Sentence tokenize and calculate sentiment (TextBlob)
+- [x] **Task 5**: Word tokenize and preprocess
+- [x] **Task 6**: Frequent words and word cloud
+- [x] **Task 7**: Convert to TF-IDF / Document-Term Matrix
+- [x] **Task 8**: Build Topic Modeling (LDA with 10 topics)
 
-# --- Quick FAQs (moved below the search view) ---
+---
 
-# Only show Quick FAQs if no question has been answered yet
+## 📈 Sample Output
 
-if not question*answered:
-st.markdown('### Quick FAQs') # Create columns for FAQ buttons using full width
-\_faq_cols = st.columns([1, 1, 1, 1, 1, 1]) # 6 equal columns for 6 questions
-\_faq_targets = TOP_FAQ_QUESTIONS[:6]
-for idx, q in enumerate(\_faq_targets):
-with \_faq_cols[idx]:
-if st.button(q, key=f"quick_faq*{idx}", use_container_width=True): # Use a different session state key to avoid conflict
-st.session_state['selected_question'] = q
-st.rerun()
-else: # Show reset button when Quick FAQs are hidden
-st.markdown('### Quick FAQs')
-if st.button('🔄 Reset - Show Quick FAQs Again', key='reset_faqs', use_container_width=True):
-st.session_state['question_answered'] = False
-st.session_state['selected_question'] = ''
-st.rerun()
+### Sentiment Distribution
+```
+Positive: 45.6%
+Neutral:  41.5%
+Negative: 12.9%
+```
 
-# --- Footer ---
+### Top Words
+```
+1. company    (87)
+2. revenue    (65)
+3. growth     (52)
+4. market     (48)
+5. operations (43)
+```
 
-st.markdown("""
+### Sample Topics
+```
+Topic 1: financial, performance, revenue, growth, profit
+Topic 2: operations, manufacturing, production, facilities
+Topic 3: market, competition, strategy, expansion
+...
+```
 
-<hr/>
-<div style="text-align:center; opacity:0.7; font-size:14px;">
-	<span>© 2025 Heritage FAQ Chatbot · Built with Streamlit</span>
-</div>
-""", unsafe_allow_html=True)
+---
+
+## 🐛 Troubleshooting
+
+### Issue: "ModuleNotFoundError: No module named 'PyPDF2'"
+**Solution:**
+```powershell
+pip install PyPDF2==3.0.1
+```
+
+### Issue: NLTK data not found
+**Solution:**
+```python
+import nltk
+nltk.download('stopwords')
+nltk.download('punkt')
+```
+
+### Issue: PDF upload error
+**Solution:** Ensure PDF is text-based (not scanned images)
+
+---
+
+## 🔮 Future Enhancements
+
+- [ ] Named Entity Recognition (NER)
+- [ ] Multi-report comparison
+- [ ] Time-series sentiment tracking
+- [ ] OCR for scanned PDFs
+- [ ] Export to PowerPoint/PDF
+- [ ] Advanced visualizations (Plotly)
+- [ ] Fine-tuned BERT models
+
+---
+
+## 📚 References
+
+- **LDA Paper**: Blei et al. (2003) - "Latent Dirichlet Allocation"
+- **Streamlit Docs**: https://docs.streamlit.io/
+- **NLTK Book**: "Natural Language Processing with Python"
+- **Scikit-learn**: https://scikit-learn.org/
+
+---
+
+## 👨‍💻 Course Information
+
+**Course:** DE-IV (Speech and Natural Language Processing)  
+**Semester:** 7 | B.Tech (CS-DS)  
+**Institution:** [Your Institution]  
+**Date:** October 20, 2025
+
+---
+
+## 📄 License
+
+This project is created for educational purposes as part of the NLP course curriculum.
+
+---
+
+## 🤝 Contributing
+
+This is an academic project. For suggestions or improvements, please contact the course instructor.
+
+---
+
+**Built with ❤️ using Python & Streamlit**
