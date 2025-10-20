@@ -14,8 +14,23 @@ from sklearn.decomposition import LatentDirichletAllocation
 from collections import Counter
 
 # ========== NLTK Setup ==========
-nltk.download('stopwords', quiet=True)
-nltk.download('punkt', quiet=True)
+import ssl
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', quiet=True)
+
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords', quiet=True)
 
 # ========== Streamlit Page Setup ==========
 st.set_page_config(page_title="Hindustan Foods Report Analyzer", layout="wide")
