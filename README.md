@@ -105,8 +105,7 @@ The app will open in your browser at `http://localhost:8501`
 
 ```
 project/
-├── assignment.py          # Main Streamlit application
-├── PROJECT_REPORT.md      # Detailed project report
+├── app.py          # Main Streamlit application
 ├── README.md              # This file
 └── requirements.txt       # Python dependencies (optional)
 ```
@@ -154,67 +153,5 @@ Topic 3: market, competition, strategy, expansion
 
 ---
 
-## 🐛 Troubleshooting
 
-### Issue: "ModuleNotFoundError: No module named 'PyPDF2'"
-**Solution:**
-```powershell
-pip install PyPDF2==3.0.1
-```
 
-### Issue: NLTK data not found
-**Solution:**
-```python
-import nltk
-nltk.download('stopwords')
-nltk.download('punkt')
-```
-
-### Issue: PDF upload error
-**Solution:** Ensure PDF is text-based (not scanned images)
-
----
-
-## 🔮 Future Enhancements
-
-- [ ] Named Entity Recognition (NER)
-- [ ] Multi-report comparison
-- [ ] Time-series sentiment tracking
-- [ ] OCR for scanned PDFs
-- [ ] Export to PowerPoint/PDF
-- [ ] Advanced visualizations (Plotly)
-- [ ] Fine-tuned BERT models
-
----
-
-## 📚 References
-
-- **LDA Paper**: Blei et al. (2003) - "Latent Dirichlet Allocation"
-- **Streamlit Docs**: https://docs.streamlit.io/
-- **NLTK Book**: "Natural Language Processing with Python"
-- **Scikit-learn**: https://scikit-learn.org/
-
----
-
-## 👨‍💻 Course Information
-
-**Course:** DE-IV (Speech and Natural Language Processing)  
-**Semester:** 7 | B.Tech (CS-DS)  
-**Institution:** [Your Institution]  
-**Date:** October 20, 2025
-
----
-
-## 📄 License
-
-This project is created for educational purposes as part of the NLP course curriculum.
-
----
-
-## 🤝 Contributing
-
-This is an academic project. For suggestions or improvements, please contact the course instructor.
-
----
-
-**Built with ❤️ using Python & Streamlit**
